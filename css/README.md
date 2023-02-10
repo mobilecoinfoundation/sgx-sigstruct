@@ -1,4 +1,4 @@
-# MobileCoin: sigstruct
+# MobileCoin: Enclave sigstruct extractor
 
 [![Project Chat][chat-image]][chat-link]<!--
 -->![License][license-image]<!--
