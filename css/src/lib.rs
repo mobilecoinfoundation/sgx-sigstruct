@@ -2,14 +2,12 @@
 
 #![doc = include_str!("../README.md")]
 
-use core::{
-    fmt::{Debug, Formatter, Result as FmtResult},
-    mem::size_of,
-    result::Result as StdResult,
-};
+use core::{mem::size_of, result::Result as StdResult};
 use displaydoc::Display;
+use hex_fmt::HexFmt;
 use nom::AsBytes;
 use sha2::{Digest, Sha256};
+use std::fmt::{self, Debug, Display, Formatter};
 
 type Result = StdResult<Signature, Error>;
 
@@ -20,8 +18,6 @@ const HEADER1: [u8; LENGTH_16] = [
 const HEADER2: [u8; LENGTH_16] = [
     0x01, 0x01, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
 ];
-const VENDOR_INTEL: [u8; LENGTH_4] = [0x00, 0x00, 0x80, 0x86];
-const VENDOR_OTHER: [u8; LENGTH_4] = [0; LENGTH_4];
 
 /// The vendor enum used in the enclave
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -109,13 +105,12 @@ const RESERVED3_LEN: usize = 32;
 const RESERVED4_LEN: usize = 12;
 
 /// The SIGSTRUCT structure
-#[repr(C, packed)]
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Signature {
     /// The byte stream 0x06000000E10000000000010000000000
     header: [u8; HEADER_LEN],
     /// Intel enclaves will use 0x00008086, other enclaves will use 0x00000000
-    vendor: [u8; VENDOR_LEN],
+    vendor: EnclaveVendor,
     /// The build date of the enclave, as an 8-decimal date (YYYYMMDD) stored as
     /// little-endian bytes
     date: [u8; DATE_LEN],
@@ -123,8 +118,6 @@ pub struct Signature {
     header2: [u8; HEADER2_LEN],
     /// Data defined by the signature software
     swdefined: [u8; SWDEFINED_LEN],
-    /// Zeroes
-    _reserved1: [u8; RESERVED1_LEN],
     /// The RSA 3072-bit public key
     modulus: [u8; PUBKEY_LEN],
     /// The RSA Exponent, as an LE u32
@@ -135,22 +128,16 @@ pub struct Signature {
     miscselect: [u8; MISCSELECT_LEN],
     /// A bitmask of miscselect features, as 32 bits
     miscmask: [u8; MISCMASK_LEN],
-    /// More zeroes
-    _reserved2: [u8; RESERVED2_LEN],
     /// Enclave attribute flags
     attributes: [u8; ATTRIBUTES_LEN],
     /// Bitmask of attribute flags
     attributemask: [u8; ATTRIBUTEMASK_LEN],
     /// The MRENCLAVE value, as bytes
     enclavehash: [u8; MRENCLAVE_LEN],
-    /// Still more zeroes
-    _reserved3: [u8; RESERVED3_LEN],
     /// The product ID, stored as little-endian bytes
     isvprodid: [u8; ISVPRODID_LEN],
     /// The security version of the enclave, stored as little-endian bytes
     isvsvn: [u8; ISVSVN_LEN],
-    /// Enough with the zeroes already
-    _reserved4: [u8; RESERVED4_LEN],
     /// Q1 value
     q1: [u8; Q1_LEN],
     /// Q2 value
@@ -165,9 +152,7 @@ impl Signature {
 
     /// Retrieve the enclave vendor type.
     pub fn vendor(&self) -> EnclaveVendor {
-        u32::from_le_bytes(self.vendor)
-            .try_into()
-            .expect("Signature not properly sanitized on load")
+        self.vendor
     }
 
     /// Retrieve the date (without timezone) the enclave was built as a
@@ -257,58 +242,6 @@ impl Signature {
     }
 }
 
-impl Debug for Signature {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "Signature {{ ")?;
-        write!(f, "header: {:02x?}, ", self.header)?;
-        write!(f, "vendor: {:02x?}, ", self.vendor)?;
-        write!(f, "date: {:02x?}, ", self.date)?;
-        write!(f, "header2: {:02x?}, ", self.header2)?;
-        write!(f, "swdefined: {:02x?}, ", self.swdefined)?;
-        write!(f, "modulus: {:02x?}, ", &self.modulus[..])?;
-        write!(f, "exponent: {:02x?}, ", self.exponent)?;
-        write!(f, "signature: {:02x?}, ", &self.signature[..])?;
-        write!(f, "miscselect: {:02x?}, ", self.miscselect)?;
-        write!(f, "miscmask: {:02x?}, ", self.miscmask)?;
-        write!(f, "attributes: {:02x?}, ", self.attributes)?;
-        write!(f, "attributemask: {:02x?}, ", self.attributemask)?;
-        write!(f, "enclavehash: {:02x?}, ", self.enclavehash)?;
-        write!(f, "isvprodid: {:02x?}, ", self.isvprodid)?;
-        write!(f, "isvsvn: {:02x?}, ", self.isvsvn)?;
-        write!(f, "q1: {:02x?}, ", &self.q1[..])?;
-        write!(f, "q2 {:02x?}, ", &self.q2[..])?;
-        write!(f, "}}")
-    }
-}
-
-impl Eq for Signature {}
-
-impl PartialEq for Signature {
-    fn eq(&self, other: &Self) -> bool {
-        self.header == other.header
-            && self.vendor == other.vendor
-            && self.date == other.date
-            && self.header2 == other.header2
-            && self.swdefined == other.swdefined
-            && self._reserved1[..] == other._reserved1[..]
-            && self.modulus[..] == other.modulus[..]
-            && self.exponent == other.exponent
-            && self.signature[..] == other.signature[..]
-            && self.miscmask == other.miscmask
-            && (self.misc_select() & self.misc_mask()) == (other.misc_select() & other.misc_mask())
-            && self._reserved2 == other._reserved2
-            && self.attributemask == other.attributemask
-            && (self.attributes() & self.attribute_mask())
-                == (other.attributes() & other.attribute_mask())
-            && self.enclavehash == other.enclavehash
-            && self._reserved3 == other._reserved3
-            && self.isvprodid == other.isvprodid
-            && self.isvsvn == other.isvsvn
-            && self.q1[..] == other.q1[..]
-            && self.q2[..] == other.q2[..]
-    }
-}
-
 impl TryFrom<&[u8]> for Signature {
     type Error = Error;
 
@@ -317,58 +250,52 @@ impl TryFrom<&[u8]> for Signature {
             return Err(Error::Length);
         }
 
-        let (bytes, header) = take(HEADER_LEN)(src.as_bytes());
-        let (bytes, vendor) = take(VENDOR_LEN)(bytes);
-        let (bytes, date) = take(DATE_LEN)(bytes);
-        let (bytes, header2) = take(HEADER2_LEN)(bytes);
-        let (bytes, swdefined) = take(SWDEFINED_LEN)(bytes);
-        let (bytes, _reserved1) = take(RESERVED1_LEN)(bytes);
-        let (bytes, modulus) = take(PUBKEY_LEN)(bytes);
-        let (bytes, exponent) = take(EXPONENT_LEN)(bytes);
-        let (bytes, signature) = take(SIGNATURE_LEN)(bytes);
-        let (bytes, miscselect) = take(MISCSELECT_LEN)(bytes);
-        let (bytes, miscmask) = take(MISCMASK_LEN)(bytes);
-        let (bytes, _reserved2) = take(RESERVED2_LEN)(bytes);
-        let (bytes, attributes) = take(ATTRIBUTES_LEN)(bytes);
-        let (bytes, attributemask) = take(ATTRIBUTEMASK_LEN)(bytes);
-        let (bytes, enclavehash) = take(MRENCLAVE_LEN)(bytes);
-        let (bytes, _reserved3) = take(RESERVED3_LEN)(bytes);
-        let (bytes, isvprodid) = take(ISVPRODID_LEN)(bytes);
-        let (bytes, isvsvn) = take(ISVSVN_LEN)(bytes);
-        let (bytes, _reserved4) = take(RESERVED4_LEN)(bytes);
-        let (bytes, q1) = take(Q1_LEN)(bytes);
-        let (_bytes, q2) = take(Q2_LEN)(bytes);
+        let (bytes, header) = take::<HEADER_LEN>()(src.as_bytes());
+        let (bytes, vendor) = take::<VENDOR_LEN>()(bytes);
+        let (bytes, date) = take::<DATE_LEN>()(bytes);
+        let (bytes, header2) = take::<HEADER2_LEN>()(bytes);
+        let (bytes, swdefined) = take::<SWDEFINED_LEN>()(bytes);
+        let (bytes, _reserved1) = take::<RESERVED1_LEN>()(bytes);
+        let (bytes, modulus) = take::<PUBKEY_LEN>()(bytes);
+        let (bytes, exponent) = take::<EXPONENT_LEN>()(bytes);
+        let (bytes, signature) = take::<SIGNATURE_LEN>()(bytes);
+        let (bytes, miscselect) = take::<MISCSELECT_LEN>()(bytes);
+        let (bytes, miscmask) = take::<MISCMASK_LEN>()(bytes);
+        let (bytes, _reserved2) = take::<RESERVED2_LEN>()(bytes);
+        let (bytes, attributes) = take::<ATTRIBUTES_LEN>()(bytes);
+        let (bytes, attributemask) = take::<ATTRIBUTEMASK_LEN>()(bytes);
+        let (bytes, enclavehash) = take::<MRENCLAVE_LEN>()(bytes);
+        let (bytes, _reserved3) = take::<RESERVED3_LEN>()(bytes);
+        let (bytes, isvprodid) = take::<ISVPRODID_LEN>()(bytes);
+        let (bytes, isvsvn) = take::<ISVSVN_LEN>()(bytes);
+        let (bytes, _reserved4) = take::<RESERVED4_LEN>()(bytes);
+        let (bytes, q1) = take::<Q1_LEN>()(bytes);
+        let (_bytes, q2) = take::<Q2_LEN>()(bytes);
+
+        let vendor = u32::from_le_bytes(vendor).try_into()?;
 
         let signature = Signature {
-            header: <[u8; HEADER_LEN]>::try_from(header).unwrap(),
-            vendor: <[u8; VENDOR_LEN]>::try_from(vendor).unwrap(),
-            date: <[u8; DATE_LEN]>::try_from(date).unwrap(),
-            header2: <[u8; HEADER2_LEN]>::try_from(header2).unwrap(),
-            swdefined: <[u8; SWDEFINED_LEN]>::try_from(swdefined).unwrap(),
-            _reserved1: <[u8; RESERVED1_LEN]>::try_from(_reserved1).unwrap(),
-            modulus: <[u8; PUBKEY_LEN]>::try_from(modulus).unwrap(),
-            exponent: <[u8; EXPONENT_LEN]>::try_from(exponent).unwrap(),
-            signature: <[u8; SIGNATURE_LEN]>::try_from(signature).unwrap(),
-            miscselect: <[u8; MISCMASK_LEN]>::try_from(miscselect).unwrap(),
-            miscmask: <[u8; MISCMASK_LEN]>::try_from(miscmask).unwrap(),
-            _reserved2: <[u8; RESERVED2_LEN]>::try_from(_reserved2).unwrap(),
-            attributes: <[u8; ATTRIBUTES_LEN]>::try_from(attributes).unwrap(),
-            attributemask: <[u8; ATTRIBUTEMASK_LEN]>::try_from(attributemask).unwrap(),
-            enclavehash: <[u8; MRENCLAVE_LEN]>::try_from(enclavehash).unwrap(),
-            _reserved3: <[u8; RESERVED3_LEN]>::try_from(_reserved3).unwrap(),
-            isvprodid: <[u8; ISVPRODID_LEN]>::try_from(isvprodid).unwrap(),
-            isvsvn: <[u8; ISVSVN_LEN]>::try_from(isvsvn).unwrap(),
-            _reserved4: <[u8; RESERVED4_LEN]>::try_from(_reserved4).unwrap(),
-            q1: <[u8; Q1_LEN]>::try_from(q1).unwrap(),
-            q2: <[u8; Q2_LEN]>::try_from(q2).unwrap(),
+            header,
+            vendor,
+            date,
+            header2,
+            swdefined,
+            modulus,
+            exponent,
+            signature,
+            miscselect,
+            miscmask,
+            attributes,
+            attributemask,
+            enclavehash,
+            isvprodid,
+            isvsvn,
+            q1,
+            q2,
         };
 
-        if signature.header[..] != HEADER1[..] {
+        if signature.header != HEADER1 {
             return Err(Error::BadHeader1);
-        }
-
-        if signature.vendor != VENDOR_INTEL && signature.vendor != VENDOR_OTHER {
-            return Err(Error::UnknownVendor);
         }
 
         // SGX enclaves built during Obama's second term are not viable.
@@ -376,16 +303,16 @@ impl TryFrom<&[u8]> for Signature {
             return Err(Error::BadDate);
         }
 
-        if signature.header2[..] != HEADER2[..] {
+        if signature.header2 != HEADER2 {
             return Err(Error::BadHeader2);
         }
 
         // All reserved are all zero
         for reserved in [
-            &signature._reserved1[..],
-            &signature._reserved2[..],
-            &signature._reserved3[..],
-            &signature._reserved4[..],
+            &_reserved1[..],
+            &_reserved2[..],
+            &_reserved3[..],
+            &_reserved4[..],
         ]
         .iter()
         {
@@ -398,10 +325,38 @@ impl TryFrom<&[u8]> for Signature {
     }
 }
 
-fn take(count: usize) -> impl Fn(&[u8]) -> (&[u8], &[u8]) {
+fn take<const SIZE: usize>() -> impl Fn(&[u8]) -> (&[u8], [u8; SIZE]) {
     move |input| {
-        nom::bytes::complete::take::<usize, &[u8], nom::error::Error<&[u8]>>(count)(input)
-            .expect("Size of stream should have been guaranteed to hold the bytes")
+        let parsing =
+            nom::bytes::complete::take::<usize, &[u8], nom::error::Error<&[u8]>>(SIZE)(input)
+                .expect("Size of stream should have been guaranteed to hold the bytes");
+        let array = <[u8; SIZE]>::try_from(parsing.1)
+            .expect("Size of stream should have been guaranteed to hold the bytes");
+        (parsing.0, array)
+    }
+}
+
+impl Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Signature")
+            .field("header", &format_args!("0x{}", HexFmt(&self.header)))
+            .field("vendor", &self.vendor)
+            .field("date", &format_args!("0x{:02x}", &self.date()))
+            .field("header2", &format_args!("0x{}", HexFmt(&self.header2)))
+            .field("swdefined", &format_args!("0x{}", HexFmt(&self.swdefined)))
+            .field("MRSIGNER", &format_args!("0x{}", HexFmt(self.mrsigner())))
+            // skipping exponent it's always 3
+            .field("signature", &format_args!("0x{}", HexFmt(self.signature)))
+            .field("miscselect", &self.misc_select())
+            .field("miscmask", &self.misc_mask())
+            .field("attributes", &self.attributes())
+            .field("attributemask", &self.attribute_mask())
+            .field("MRENCLAVE", &format_args!("0x{}", HexFmt(self.enclavehash)))
+            .field("isvprodid", &self.product_id())
+            .field("isvsvn", &self.version())
+            .field("q1", &format_args!("0x{}", HexFmt(self.q1)))
+            .field("q2", &format_args!("0x{}", HexFmt(self.q2)))
+            .finish()
     }
 }
 
@@ -416,11 +371,10 @@ mod tests {
     // generated
     const VALID_PARSED: Signature = Signature {
         header: HEADER1,
-        vendor: [0x0, 0x0, 0x0, 0x0],
+        vendor: EnclaveVendor::Other,
         date: [0x28, 0x1, 0x20, 0x20],
         header2: HEADER2,
         swdefined: [0x0, 0x0, 0x0, 0x0],
-        _reserved1: [0; RESERVED1_LEN],
         modulus: [
             0x5f, 0x37, 0xff, 0xfc, 0x94, 0xba, 0x99, 0xf0, 0xc6, 0x29, 0x44, 0xdf, 0x86, 0x30,
             0x40, 0x5e, 0x87, 0x48, 0xcb, 0x8e, 0xf3, 0x0a, 0x52, 0x50, 0x14, 0x65, 0x69, 0x4e,
@@ -484,7 +438,6 @@ mod tests {
         ],
         miscselect: [0, 0, 0, 0],
         miscmask: [0xff, 0xff, 0xff, 0xff],
-        _reserved2: [0; RESERVED2_LEN],
         attributes: [0x4, 0, 0, 0, 0, 0, 0, 0, 0x3, 0, 0, 0, 0, 0, 0, 0],
         attributemask: [
             0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1b, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -495,10 +448,8 @@ mod tests {
             0xd8, 0x47, 0xfb, 0x18, 0x07, 0x45, 0x0a, 0x78, 0xea, 0x24, 0x21, 0xbe, 0x5c, 0xb4,
             0xb4, 0x9a, 0x5e, 0xa9,
         ],
-        _reserved3: [0; RESERVED3_LEN],
         isvprodid: [0x1, 0],
         isvsvn: [0x1, 0],
-        _reserved4: [0; RESERVED4_LEN],
         q1: [
             0xdd, 0x09, 0xd4, 0xe7, 0x60, 0xad, 0x2a, 0x39, 0x38, 0x6e, 0x50, 0xb1, 0x0f, 0x92,
             0xaf, 0x13, 0xb5, 0x47, 0x14, 0xf7, 0x37, 0x11, 0xaf, 0x37, 0x33, 0x1b, 0xe1, 0x3f,
