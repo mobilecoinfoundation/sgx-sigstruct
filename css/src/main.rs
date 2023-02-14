@@ -43,7 +43,7 @@ fn main() {
     };
 
     let sigstruct = Signature::try_from(input.as_slice()).expect("Could not parse input");
-    let output = format!("{sigstruct:#}");
+    let output = format!("{sigstruct:#?}");
     match config.output {
         Some(outfile) => {
             fs::write(outfile, output.as_bytes()).expect("Could not write output file");

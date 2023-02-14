@@ -7,7 +7,7 @@ use displaydoc::Display;
 use hex_fmt::HexFmt;
 use nom::AsBytes;
 use sha2::{Digest, Sha256};
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 type Result = StdResult<Signature, Error>;
 
@@ -105,7 +105,7 @@ const RESERVED3_LEN: usize = 32;
 const RESERVED4_LEN: usize = 12;
 
 /// The SIGSTRUCT structure
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Signature {
     /// The byte stream 0x06000000E10000000000010000000000
     header: [u8; HEADER_LEN],
@@ -336,7 +336,7 @@ fn take<const SIZE: usize>() -> impl Fn(&[u8]) -> (&[u8], [u8; SIZE]) {
     }
 }
 
-impl Display for Signature {
+impl Debug for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Signature")
             .field("header", &format_args!("0x{}", HexFmt(&self.header)))
@@ -545,5 +545,30 @@ mod tests {
     #[test]
     fn invalid_css() {
         assert_eq!(Err(Error::Length), Signature::try_from(INVALID));
+    }
+
+    #[test]
+    fn debug_output() {
+        const VALID_DEBUG: &str = r#"
+        Signature {
+            header: 0x06000000e10000000000010000000000,
+            vendor: Other,
+            date: 0x20200128,
+            header2: 0x01010000600000006000000001000000,
+            swdefined: 0x00000000,
+            MRSIGNER: 0x7ee5e29d74623fdbc6fbf1454be6f3bb0b86c12366b7b478ad13353e44de8411,
+            signature: 0x3552af6f447a4061642e4efef7788efaa0ccf7268a5e25c82d0b8c473b81ab5ef38a4fa2a703c0d62dee34fde0ae93a2c8120a3440100d2c835cb361a8182dc72a26ed2e91a3e2d1decaee78ef5c28b9c626e05209ae5a8a283c5013601ebe9bea5089d96635e4981e8dd20a23fdbc16d382218df633fd17ff6d49789d538a36989540d051c3ac684ac70dfcd5f5dcc2c6dea10f0ebd0a61b2d5582f55862263ddb76f53fbbb3708c4cf86f67993499caea3a1fb7350fc6f57f3d8d12f4c91ad1c4d93ed92385c623c87790ffc69aae4eccdb107fe71cff2c5a667d3216a4d3a3d67e8ee702fd67a0a4e1afb4304a675daa4623026acfc28aadf9562f5d54e8472a5b0d475d7abe28bd57f7c42d675eaa5da58a17d18ba716eaac8eb45d4e54e2740b81ef8ff048c4e8cdbb4d1786fca7ebb8595b7032c5e81b2026a350f4901e6960102f5d30d3a3a8a47544548be3c3ece8ffb15354e61749486c244a70c038a690b29d8385df9c42c019703917c03a8544c113b1f74aefe399216beb5ee8e,
+            miscselect: 0,
+            miscmask: 4294967295,
+            attributes: 55340232221128654852,
+            attributemask: 340282366920938459257516958625990443005,
+            MRENCLAVE: 0x5b9fbfca6ac62d8236ec5e1c4eebd847fb1807450a78ea2421be5cb4b49a5ea9,
+            isvprodid: 1,
+            isvsvn: 1,
+            q1: 0xdd09d4e760ad2a39386e50b10f92af13b54714f73711af37331be13fc8fcc127bbd0695267611c59058084deb63d1c89bcbc84923b585f3f7d9743c96448b7cf15cc79ecf9e8845a3282e05c4ef42f5c661c51d1502c8199e1b3d9ecb3fbfacc969a2d8edec4fc8621dd4d789f76de645b2d92585287aeef38d7aca5aaa0711b67d363ed7cea3b35ef76ecee1d3a1f244ac790fd3704f63c57fbad7abaadd6b3bb638e0c4df7857f389f4133df6526d6ee29194c258664d721468a2bacd4d1dd9c0b9f7b86de511e3e5a8254bba992b95fd2317745f291f39320317a575307b04b166ca7ae1f4d118389f06f1abc4f970aeacc2f98cf8678c728dbba9eb8365db10fda71cf32c2147e77b0660462a49858edc01285b93309efffb80ae8fa957a83b6ef5e93e52dfd8fedbbfb4f45d8d2b30278ea8ed98ac80456bf11ce96afea10d18e35808e0846fff4c42d650914e203195b0363216b21760117efdc7fc688e8db9ff6d6363e9ae6cc1e51775afc35d9e16b81e78f46bfed5afc5ee16b5f79,
+            q2: 0x61b386f74aa09aaef2185c6972e4edd561fd1f54f1ccf1939a1b855a5a09291ab6506d2d241d2c0778ac2e9cf2c7d2c1cfe94cd7441393f71d06d8256988e098af4fdbeff10c34834f36be86054de498b3e7a9aa600cea55a1a0fd0d0af689ad876dc09773ff1cb592dec21c1ca6f82c38c8a8bd19598035ec30769c605c914841a9fe81af64220c46066c95005790331d5e2b172d3bc372894ec782b71eb3a71ccb33ba44b50473ef8c7a7e7de0b03d272ba7b7b96779de7c53a61eaf4547d69847cce01ae7f80c8af84063efc916462107adcaf0d720c305706fee42f8a91edad4965191e2cc412a0ee821a91d74d84c252acce2465a5190fd58846eef29c9822006316819615c9d4e527b63fb417fc531139cb2907c4e8bd59ec22b1f426c92a0b4d8b5dfd2166fe0f625aaa6bb73857408a678dafdd0c1dba9076d61276d8b54ca6f101856afefc5b1b0d71d3c0c505db8b86f920de82a5a55ff879ea95d22915757f61976d7094aa8588d9eb9b14fa1b52370470d7ad1f5caa4ecf5db88,
+        }"#;
+        let signature = Signature::try_from(VALID).expect("Could not parse valid CSS file");
+        assert_eq!(format!("\n{signature:#?}"), textwrap::dedent(VALID_DEBUG));
     }
 }
