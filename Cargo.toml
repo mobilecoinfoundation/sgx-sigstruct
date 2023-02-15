@@ -1,7 +1,17 @@
-[workspace]
-members = [
-    "css",
-]
+[package]
+name = "mc-sgx-css"
+version = "0.1.0"
+authors = ["MobileCoin"]
+# See https://crates.io/category_slugs for valid categories
+categories = ["development-tools", "encoding"]
+description = "Enclave signature struct extractor"
+edition = "2021"
+# See https://crates.io/keywords for the common keywords
+keywords = ["utility", "encoding", "sigstruct"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/mobilecoinfoundation/sgx-sigstruct"
+rust-version = "1.62.1"
 
 # We need to explicitly specify resolver 2.
 # We shouldn't have to per https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html, but that does not appear to be the case
@@ -24,3 +34,13 @@ tag-name = "v{{version}}"
 pre-release-replacements = [
     {file="README.md", search="mc-[a-z-]+/[0-9.]+", replace="{{crate_name}}/{{version}}"},
 ]
+
+[dependencies]
+clap = { version = "4.0", features = ["derive", "env"] }
+displaydoc = { version = "0.2", default-features = false }
+hex_fmt = "0.3"
+nom = "7"
+sha2 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+textwrap = "0.16.0"

@@ -1,10 +1,10 @@
 rust:
   - '**.rs'
-  - '**/Cargo.lock'
-  - '**/Cargo.toml'
+  - 'Cargo.lock'
+  - 'Cargo.toml'
 
 dependencies:
-  - '**/Cargo.lock'
+  - 'Cargo.lock'
 
 github_actions:
   - '.github/workflows/**'
