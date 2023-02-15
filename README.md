@@ -15,7 +15,7 @@ It includes Intel SGX SIGSTRUCT Dump Utility to read a CSS file and print its ou
 
 ## Examples
 
-```ignore
+```rust, no_run
 use hex_fmt::HexFmt;
 use std::path::Path;
 use sgx_css::Signature;
