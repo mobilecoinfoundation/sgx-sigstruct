@@ -1,17 +1,27 @@
 [package]
 name = "mc-sgx-css"
 version = "0.1.0"
-authors = ["MobileCoin"]
+authors = { workspace = true }
 # See https://crates.io/category_slugs for valid categories
 categories = ["development-tools", "encoding"]
-description = "Enclave signature struct extractor"
-edition = "2021"
+description = "A brief summary of the crate"
+edition = { workspace = true }
 # See https://crates.io/keywords for the common keywords
 keywords = ["utility", "encoding", "sigstruct"]
-license = "Apache-2.0"
+license = { workspace = true }
 readme = "README.md"
-repository = "https://github.com/mobilecoinfoundation/sgx-sigstruct"
-rust-version = "1.62.1"
+repository = { workspace = true }
+rust-version = { workspace = true }
+
+# At least one crate must have this configuration
+[package.metadata.release]
+pre-release-replacements = [
+    { file = "../../CHANGELOG.md", search = "Unreleased", replace = "{{version}}", min = 1 },
+    { file = "../../CHANGELOG.md", search = "\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly = 1 },
+    { file = "../../CHANGELOG.md", search = "ReleaseDate", replace= "{{date}}", min = 1 },
+    { file = "../../CHANGELOG.md", search = "<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate\n", exactly = 1 },
+    { file = "../../CHANGELOG.md", search = "<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/mobilecoinfoundation/sgx-sigstruct/compare/{{tag_name}}...HEAD", exactly = 1 },
+]
 
 [dependencies]
 clap = { version = "4.0", features = ["derive", "env"] }
