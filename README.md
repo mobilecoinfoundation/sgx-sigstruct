@@ -28,13 +28,13 @@ fn main() {
 ```
 
 [chat-image]: https://img.shields.io/discord/844353360348971068?style=flat-square
-[chat-link]: https://mobilecoin.chat
+[chat-link]: https://discord.gg/mobilecoin
 [license-image]: https://img.shields.io/crates/l/mc-sgx-css?style=flat-square
 [deps-image]: https://deps.rs/repo/github/mobilecoinfoundation/sgx-sigstruct/status.svg?style=flat-square
 [deps-link]: https://deps.rs/repo/github/mobilecoinfoundation/sgx-sigstruct
-[codecov-image]: https://img.shields.io/codecov/c/github/mobilecoinfoundation/sgx-sigstruct/develop?style=flat-square
+[codecov-image]: https://img.shields.io/codecov/c/github/mobilecoinfoundation/sgx-sigstruct/main?style=flat-square
 [codecov-link]: https://codecov.io/gh/mobilecoinfoundation/sgx-sigstruct
-[gha-image]: https://img.shields.io/github/workflow/status/mobilecoinfoundation/sgx-sigstruct/ci.yaml?branch=main&style=flat-square
+[gha-image]: https://img.shields.io/github/actions/workflow/status/mobilecoinfoundation/sgx-sigstruct/ci.yaml?branch=main&style=flat-square
 [gha-link]: https://github.com/mobilecoinfoundation/sgx-sigstruct/actions/workflows/ci.yaml?query=branch%3Amain
 [conduct-link]: CODE_OF_CONDUCT.md
 [conduct-image]: https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square
