@@ -1,4 +1,3 @@
-addReviewers: true
+---
 addAssignees: author
-reviewers:
-  - mobilecoinfoundation/coredev
+runOnDraft: true
